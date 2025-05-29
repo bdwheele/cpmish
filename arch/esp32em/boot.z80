@@ -1,0 +1,13 @@
+; Kaypro II cpmish BIOS © 2019 David Given
+; This file is distributable under the terms of the 2-clause BSD license.
+; See COPYING.cpmish in the distribution root directory for more information.
+
+; This is the boot sector needed by a Kaypro II to recognise the disk as
+; bootable. It doesn't actually appear to run any of this; the contents
+; are magic. I don't know how much it actually needs.
+
+    org 0xfa00
+    jr $
+    nop
+    call po, 0xfa00
+    jr nc, 0xfa08

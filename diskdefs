@@ -91,5 +91,17 @@ diskdef brother-powernote
 	os 2.2
 end
 
+
+# Disk iamge for ESP32 emulator.  It's just a PC-style 1.44M disk
+diskdef esp32em
+	seclen 512
+	tracks 160
+	sectrk 18
+	blocksize 2048
+	maxdir 128
+	boottrk 3
+	os 2.2
+end
+
 # vim: set ts=4 sw=4 expandtab
 
