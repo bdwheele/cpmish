@@ -1,13 +1,13 @@
-; Kaypro II cpmish BIOS © 2019 David Given
-; This file is distributable under the terms of the 2-clause BSD license.
-; See COPYING.cpmish in the distribution root directory for more information.
+; The bottom bits of memory, mostly to give the emulator 
+; the locations of BBASE and FBASE
 
-; This is the boot sector needed by a Kaypro II to recognise the disk as
-; bootable. It doesn't actually appear to run any of this; the contents
-; are magic. I don't know how much it actually needs.
+    extern BBASE
+    extern FBASE
+    extern CBASE
 
-    org 0xfa00
-    jr $
-    nop
-    call po, 0xfa00
-    jr nc, 0xfa08
+boot:
+    jp BBASE        ; the BIOS BOOT Entrypoint (since we need to cold boot)
+    db 0            ; iobyte
+    db 0            ; cdisk
+    jp FBASE + 6    ; the BDOS entrypoint (starts with "ZSDOS " so skip it)
+    dw CBASE        ; the location of CCP

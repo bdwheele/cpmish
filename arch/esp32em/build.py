@@ -1,11 +1,21 @@
 from build.ab import simplerule
-from build.cpm import diskimage
-from utils.build import unix2cpm
+from build.cpm import cpm_addresses, diskimage
+from utils.build import unix2cpm, objectify
 from third_party.zmac.build import zmac
 from third_party.ld80.build import ld80
+from glob import glob
 
+# Memory layout configuration -----------------------------------------------
 
-zmac(name="boot", src="./boot.z80", relocatable=False)
+# Configure the BIOS size here; this will then emit an addresses.lib file
+# which contains the position of the BDOS and CCP.
+
+# bios_size was 0x0300
+(cbase, fbase, bbase) = cpm_addresses(name="addresses", bios_size=0x0100)
+
+# BIOS ----------------------------------------------------------------------
+
+# The CP/M BIOS itself.
 
 zmac(
     name="bios",
@@ -13,31 +23,55 @@ zmac(
     deps=[
         "include/cpm.lib",
         "include/cpmish.lib",
+        ".+addresses",
     ],
 )
 
-# Builds the memory image.
+# The boot bits at bottom of memory
+zmac(
+    name="boot",
+    src="./boot.z80",
+    deps=[
+        ".+addresses"
+    ]
+)
+
+
+# Builds the memory image. This is a 64kB file containing the entire CP/M
+# memory image, including the supervisor at the bottom.
 ld80(
-    name="bootfile_mem",
+    name="memory_img",
+    address=0,
     objs={
-        0xE400: ["third_party/zcpr1"],
-        0xEC00: ["third_party/zsdos"],
-        0xFA00: [".+bios"],
+        0x0000: [".+boot"],
+        cbase: ["third_party/zcpr1"],
+        fbase: ["third_party/zsdos"],
+        bbase: [".+bios"],
     },
 )
 
-# Repackages the memory image as a boot track. This doesn't include the extra
-# section of boot image which exists above the directory.
+simplerule(
+    name="memoryfile",
+    ins=[".+memory_img"],
+    outs=["=memoryfile.img"],
+    commands=[
+        "dd if={ins[0]} of={outs[0]} status=none"
+    ],
+    label="MEMIMG"
+)
+
+
+# Repackages the memory image as a boot track.
+
 simplerule(
     name="bootfile",
-    ins=[".+boot", ".+bootfile_mem"],
+    ins=[".+memory_img"],
     outs=["=bootfile.img"],
     commands=[
-        "dd if={ins[0]} of={outs[0]} bs=128 count=1 2> /dev/null",
-        "dd if={ins[1]} of={outs[0]} bs=128 seek=1 skip=456 count=16 2> /dev/null",
-        "dd if={ins[1]} of={outs[0]} bs=128 seek=17 skip=472 count=23 2> /dev/null",
+        "dd if={ins[0]} of={outs[0]} status=none bs=256 count=36",
+        "dd if={ins[0]} of={outs[0]} status=none bs=256 seek=36 skip=231 count=25",
     ],
-    label="MKESP32",
+    label="MKBOOTFILE",
 )
 
 unix2cpm(name="readme", src="README.md")
@@ -48,28 +82,21 @@ diskimage(
     bootfile=".+bootfile",
     map={
         "-readme.txt": ".+readme",
-        "dump.com": "cpmtools+dump",
-        "stat.com": "cpmtools+stat",
         "asm.com": "cpmtools+asm",
-        "copy.com": "cpmtools+copy",
-        "submit.com": "cpmtools+submit",
+        "asm80.com": "third_party/dr/asm80",
         "bbcbasic.com": "third_party/bbcbasic+bbcbasic_ADM3A",
         "camel80.com": "third_party/camelforth",
-        "qe.com": "cpmtools+qe_KAYPROII",
+        "copy.com": "cpmtools+copy",
+        "dump.com": "cpmtools+dump",
+        "flash.com": "arch/nc200/tools+flash",
+        "flipdisk.com": "arch/nc200/tools+flipdisk",
+        "mkfs.com": "cpmtools+mkfs",
+        "qe.com": "cpmtools+qe_NC200",
+        "rawdisk.com": "cpmtools+rawdisk",
+        "stat.com": "cpmtools+stat",
+        "submit.com": "cpmtools+submit",
+        "ted.com": "third_party/ted+ted_NC200",
+        "z8e.com": "third_party/z8e+z8e_NC200",
     },
 )
 
-# Patches the special extra bit of BDOS/BIOS into the area above the
-# directory; yuch.
-if False:
-    simplerule(
-        name="diskimage",
-        ins=[".+partialimg", ".+bootfile_mem"],
-        outs=["=diskimage.img"],
-        commands=[
-            "cp {ins[0]} {outs[0]}",
-            "chmod +w {outs[0]}",
-            "dd if={ins[1]} of={outs[0]} bs=128 seek=56 skip=495 count=9 conv=notrunc 2> /dev/null",
-        ],
-        label="MKKAYPRO2",
-    )

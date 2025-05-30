@@ -33,9 +33,8 @@ label BBASE
     jp LISTSTE
     jp SECTRANE
 
-; This is the default IOBYTE, which must be immediately after the jump table
-; for compatibility with the Kaypro config.com command which will patch it.
-ioconfig: db 0x81
+
+
 
 ; Actual BIOS entrypoints.
 ;
@@ -47,33 +46,33 @@ ioconfig: db 0x81
 
 ; Cold boot on system startup.
 BOOTE:
+    ; set up a stack 
     di
-    in a, (PORT_BITPORT)     ; disable ROM
-    and 0x7f
-    out (PORT_BITPORT), a
     ld sp, 0x0100            ; ephemeral startup stack
     ei
 
-    call reset_disk_system
-
-	ld a, 8                  ; turn off the annoying keyboard beep
-	out (PORT_BEEPER), a
-
-    ld a, (ioconfig)         ; set default IOBYTE
-    ld (IOBYTE), a
-    
-    xor a
-    ld (CDISK), a            ; clear current disk / user
-
-    ld a, (baudrate)         ; initialise serial hardware
-    out (PORT_SERIAL_BAUD), a
-
+    ; print the banner
     call print
-    db 0x1a                  ; clear screen
-    cpmish_banner 'Kaypro II'
+    cpmish_banner 'ESP32 Emulator'
     db 0
-    ; fall through
-call_ccp:
+
+    ; clear the IOBYTE and the DISK
+    xor a
+    ld (IOBYTE), a
+    ld (CDISK), a
+
+
+; Warm boot on application exit.
+WBOOTE:
+    ; tell the emulator to reload the CCP/BDOS/BIOS image into
+    ; memory from other storage.  On initial startup, it will get loaded 
+    ; by the emulator and then we fall through from BOOTE and load
+    ; it again. Inefficient, but not really worried.  On warm boot the
+    ; image gets loaded on top the existing one so it's not a problem
+    ; if it's exactly the same.  Could be interesting if it isnt...
+    out (1), a
+
+    ; set things up to call the CCP
     ld a, 0xc3
     ld hl, BBASE + 3         ; init BIOS entrypoint
     ld (0x0000), a
@@ -87,196 +86,60 @@ call_ccp:
     ld c, a
     jp CBASE                 ; pass control to CCP
 
-stop_disk_motor:
-    in a, (PORT_BITPORT)
-    or 0x40                  ; turn off motor
-    out (PORT_BITPORT)
-    ret
-
-reset_disk_system:
-    ld l, 0x03
-    jp syscall
-
-; Warm boot on application exit.
-WBOOTE:
-    call reset_disk_system
-
-    ld sp, 0x0100            ; ephemeral user stack
-
-    ld c, 0                  ; select drive 0
-    call SELDSKE
-    ld bc, 0
-    call SETTRKE             ; select track 0
-
-    ld hl, CBASE             ; location to load
-    ld bc, 1                 ; first sector to load
-
-    ; We just load track 0. There is some BDOS and BIOS on track 1, but this
-    ; should only ever need loading once on cold boot, so we save a bit of
-    ; time and complexity by not reloading it here.
-boot_loop:
-    push bc
-    push hl
-
-    call SETSECE             ; set sector to load
-
-    pop bc                   ; DMA address into BC
-    push bc
-    call SETDMAE             ; set address
-    call READE               ; actually load the sector
-
-    pop hl                   ; DMA address back into HL
-    ld bc, 128
-    add hl, bc
-
-    pop bc                   ; current sector back into bc
-    ld a, c
-    inc c
-    cp 39                    ; end of track 0
-    jr nz, boot_loop
-    jr call_ccp
+; The rest of the BIOS calls all just call the emulator and return
+; this macro simplifies it.
+call_em macro FN
+	out (FN), a
+	or a
+	ret
+    endm
 
 CONSTE:
-    ld hl, disk_off_count
-    inc (hl)                 ; increment drive motor count and...
-    call z, stop_disk_motor  ; ...turn the motor off on rollover
-
-    ld a, (IOBYTE)
-    and 0x03
-    ld l, 0x33               ; test serial port input status
-    jp z, syscall
-    ld l, 0x2a               ; test console input status
-    jp syscall
+    call_em(2)
 
 CONINE:
-    call stop_disk_motor
-
-    ld a, (IOBYTE)
-    and 0x03
-    ld l, 0x36               ; read serial port
-    jp z, syscall
-    ld l, 0x2d               ; read console
-    call syscall
-
-    or a
-    ret p                    ; normal key, exit now
-
-    and 0x7f                 ; translate via the lookup table
-    ld hl, numpad_translation_table
-    ld c, a
-    ld b, 0
-    add hl, bc
-    ld a, (hl)
-    ret
+    call_em(3)
 
 CONOUTE:
-    ld a, (IOBYTE)
-    and 0x03
-    jp z, PUNCHE             ; send to serial
-    ld l, 0x45               ; send to console
-    jr syscall
+    call_em(4)
 
 LISTE:
-    ld a, (IOBYTE)
-    and 0xc0
-    jp z, PUNCHE             ; send to serial
-    cp 0x80
-    ld l, 0x3f               ; send to printer
-    jp z, syscall
-    cp 0x40
-    ld l, 0x45               ; send to console
-    jp z, syscall
-    ; fall through
+    call_em(5)
+
 PUNCHE:
-    ld l, 0x39               ; always send to serial
-    jr syscall
+    call_em(6)
 
 LISTSTE:
-    ld a, (IOBYTE)
-    and 0xc0
-    ld l, 0x42               ; test serial port output status
-    jp z, syscall
-    ld l, 0x3c               ; test print port output status
-    cp 0x80
-    jp z, syscall
-    xor a                    ; the console is always ready
-    ret
+    call_em(7)
 
 READERE:
-    ld l, 0x36
-    jr syscall
+    call_em(8)
 
 ; Selects a drive, returning the address of the DPH in HL (or 0x0000 on
 ; error).
 SELDSKE:
-    ld l, 0x0f
-    jr syscall
+    call_em(9)
 
 HOMEE:
-    ld l, 0x0c
-    jr syscall
+    call_em(10)
 
 SETTRKE:
-    ld l, 0x12
-    jr syscall
+    call_em(11)
 
 SETSECE:
-    ld l, 0x15
-    jr syscall
+    call_em(12)
 
 SETDMAE:
-    ld l, 0x18
-    jr syscall
+    call_em(13)
 
 READE:
-    xor a                    ; reset disk timer
-    ld (disk_off_count), a
-
-    ld l, 0x1b
-    jr syscall
+    call_em(14)
 
 WRITEE:
-    xor a                    ; reset disk timer
-    ld (disk_off_count), a
-
-    ld l, 0x1e
-    jr syscall
+    call_em(15)
 
 SECTRANE:
-    ld l, 0x21
-    jr syscall
-
-; Call the Kaypro ROM (which is actually doing most of the work). On entry,
-; L contains the address into the syscall jump table.
-
-syscall:
-    exx
-    di                       ; remapping and adjusting the stack must be atomic
-    in a, (PORT_BITPORT)     ; enable ROM
-    or 0x80
-    out (PORT_BITPORT), a
-    ld (saved_stack), sp     ; save old stack
-    ld sp, stack_top         ; switch to shared stack
-    ei
-    exx
-
-    ld h, 0
-    call call_hl             ; enter ROM
-    
-    ex af, af'               ; save A
-    
-    di
-    ld sp, (saved_stack)     ; restore old stack
-    in a, (PORT_BITPORT)     ; disable ROM
-    and 0x7f
-    out (PORT_BITPORT), a
-    ei
-
-    ex af, af'               ; restore A
-    ret
-
-call_hl:
-    jp (hl)
+    call_em(16)
 
 ; Prints the text immediately following the call to print.
 print:
@@ -291,17 +154,7 @@ print:
     call CONOUTE
     jr print
 
-; The number pad produces unique keycodes, which are mapped to normal keys here.
-numpad_translation_table:
-    db 11, 10, 8, 12       ; cursor keys (^K, ^J, ^H, ^L)
-    db '0', '1', '2', '3'  ; numbers
-    db '4', '5', '6', '7'
-    db '8', '9', '-', ','
-    db 13, '.'
-
-saved_stack: dw 0            ; user stack pointer while in system calls
-baudrate: db 5               ; current serial baud rate (300 baud)
-disk_off_count: db 0         ; cheap and nasty drive motor timer
 
 stack:
 stack_top: equ BBASE + 512
+
