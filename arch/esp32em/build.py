@@ -10,8 +10,8 @@ from glob import glob
 # Configure the BIOS size here; this will then emit an addresses.lib file
 # which contains the position of the BDOS and CCP.
 
-# bios_size was 0x0300
-(cbase, fbase, bbase) = cpm_addresses(name="addresses", bios_size=0x0100)
+# bios_size was 0x0300.  Was 0x100 before adding the disk tables...
+(cbase, fbase, bbase) = cpm_addresses(name="addresses", bios_size=0x0300)
 
 # BIOS ----------------------------------------------------------------------
 

@@ -46,10 +46,8 @@ label BBASE
 
 ; Cold boot on system startup.
 BOOTE:
-    ; set up a stack 
-    di
+    ; set up a stack, which we only need for printing the version
     ld sp, 0x0100            ; ephemeral startup stack
-    ei
 
     ; print the banner
     call print
@@ -69,7 +67,9 @@ WBOOTE:
     ; by the emulator and then we fall through from BOOTE and load
     ; it again. Inefficient, but not really worried.  On warm boot the
     ; image gets loaded on top the existing one so it's not a problem
-    ; if it's exactly the same.  Could be interesting if it isnt...
+    ; if it's exactly the same.  Could be interesting if it isnt.
+    ; This also will initialize the Disk Paramter Tables based on the
+    ; configuraiton of the emulator
     out (1), a
 
     ; set things up to call the CCP
@@ -141,6 +141,38 @@ WRITEE:
 SECTRANE:
     call_em(16)
 
+; Disk parameter tables.  Let's assume that the emulator
+; can have up to 4 disks.  The tables will be filled
+; in by the emulator.  This is the disk parameter header 
+DPBASE:
+    dw 0, 0, 0, 0, DIRBF, DPBLK0, CHK00, ALL00
+    dw 0, 0, 0, 0, DIRBF, DPBLK1, CHK01, ALL01
+    dw 0, 0, 0, 0, DIRBF, DPBLK2, CHK02, ALL02
+    dw 0, 0, 0, 0, DIRBF, DPBLK3, CHK03, ALL03
+
+; scratch directory area
+DIRBF: ds 128
+
+; disk parameter blocks
+DPBLK0: ds 15
+DPBLK1: ds 15
+DPBLK2: ds 15
+DPBLK3: ds 15
+
+; check vectors
+CHK00: ds 16
+CHK01: ds 16
+CHK02: ds 16
+CHK03: ds 16
+
+; allocation vectors
+ALL00: ds 31
+ALL01: ds 31
+ALL02: ds 31
+ALL03: ds 31
+
+
+
 ; Prints the text immediately following the call to print.
 print:
     pop hl                   ; return address points to text to print
@@ -153,8 +185,4 @@ print:
     ld c, a
     call CONOUTE
     jr print
-
-
-stack:
-stack_top: equ BBASE + 512
 
