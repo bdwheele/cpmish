@@ -10,6 +10,7 @@ export(
         "wp1.img": "arch/brother/wp1+diskimage",
         "kayproii.img": "arch/kayproii+diskimage",
         "nc200.img": "arch/nc200+diskimage",
-        "esp32em.img": "arch/esp32em+diskimage"
+        "retro_z80.img": "arch/retro_z80+diskimage",
+        "retro_z80.mem": "arch/retro_z80+memoryfile"
     },
 )

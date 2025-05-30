@@ -78,7 +78,7 @@ unix2cpm(name="readme", src="README.md")
 
 diskimage(
     name="diskimage",
-    format="esp32em",
+    format="retro_z80",
     bootfile=".+bootfile",
     map={
         "-readme.txt": ".+readme",

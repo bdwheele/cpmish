@@ -92,8 +92,8 @@ diskdef brother-powernote
 end
 
 
-# Disk iamge for ESP32 emulator.  It's just a PC-style 1.44M disk
-diskdef esp32em
+# Disk image for the cpm_emulator.  It's just a PC-style 1.44M disk
+diskdef retro_z80
 	seclen 512
 	tracks 160
 	sectrk 18
