@@ -4,8 +4,16 @@
     extern BBASE
     extern FBASE
     extern CBASE
+    extern DPB
 
 boot:
     jp BBASE        ; the BIOS BOOT Entrypoint (since we need to cold boot anyway)
-    dw CBASE        ; location of the CPP.  Will be overwritten in BOOTE
+    dw 0            ; CDISK and IOBYTE
     jp FBASE + 6    ; the BDOS entrypoint (starts with "ZSDOS " so skip it)
+
+    ; put some values into the BIOS scratch data space
+    org 0x40
+    dw CBASE        ; CCP BASE
+    dw FBASE        ; BDOS BASE
+    dw BBASE        ; BIOS BASE
+    dw DPB          ; Start of the Disk Paramter Block tables

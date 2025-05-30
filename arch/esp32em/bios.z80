@@ -150,26 +150,13 @@ DPBASE:
     dw 0, 0, 0, 0, DIRBF, DPBLK2, CHK02, ALL02
     dw 0, 0, 0, 0, DIRBF, DPBLK3, CHK03, ALL03
 
-; scratch directory area
-DIRBF: ds 128
-
 ; disk parameter blocks
+label DPB
 DPBLK0: ds 15
 DPBLK1: ds 15
 DPBLK2: ds 15
 DPBLK3: ds 15
 
-; check vectors
-CHK00: ds 16
-CHK01: ds 16
-CHK02: ds 16
-CHK03: ds 16
-
-; allocation vectors
-ALL00: ds 31
-ALL01: ds 31
-ALL02: ds 31
-ALL03: ds 31
 
 
 
@@ -186,3 +173,20 @@ print:
     call CONOUTE
     jr print
 
+
+    
+; BDOS Data Area
+; scratch directory area
+DIRBF: ds 128
+
+; check vectors
+CHK00: ds 16
+CHK01: ds 16
+CHK02: ds 16
+CHK03: ds 16
+
+; allocation vectors
+ALL00: ds 31
+ALL01: ds 31
+ALL02: ds 31
+ALL03: ds 31
