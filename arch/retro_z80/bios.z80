@@ -51,7 +51,7 @@ BOOTE:
 
     ; print the banner
     call print
-    cpmish_banner 'ESP32 Emulator'
+    cpmish_banner 'Retro Z80 Emulator'
     db 0
 
     ; clear the IOBYTE and the DISK
@@ -141,24 +141,6 @@ WRITEE:
 SECTRANE:
     call_em(16)
 
-; Disk parameter tables.  Let's assume that the emulator
-; can have up to 4 disks.  The tables will be filled
-; in by the emulator.  This is the disk parameter header 
-DPBASE:
-    dw 0, 0, 0, 0, DIRBF, DPBLK0, CHK00, ALL00
-    dw 0, 0, 0, 0, DIRBF, DPBLK1, CHK01, ALL01
-    dw 0, 0, 0, 0, DIRBF, DPBLK2, CHK02, ALL02
-    dw 0, 0, 0, 0, DIRBF, DPBLK3, CHK03, ALL03
-
-; disk parameter blocks
-label DPB
-DPBLK0: ds 15
-DPBLK1: ds 15
-DPBLK2: ds 15
-DPBLK3: ds 15
-
-
-
 
 ; Prints the text immediately following the call to print.
 print:
@@ -173,20 +155,67 @@ print:
     call CONOUTE
     jr print
 
+    ; Data Segment
+    dseg
 
-    
-; BDOS Data Area
-; scratch directory area
-DIRBF: ds 128
+    ; DPBASE is the start of the Disk Parameter Header.  It's public because
+    ; the emulator may need to touch it or some of the things it refers to.
+label DPBASE
+drive_a_dph:
+    dw 0            ; Sector translation vector
+    dw 0, 0, 0      ; BDOS scratchpad
+    dw dirbuf       ; Directory scratchpad
+    dw fd1440k      ; Drive parameter block
+    dw drive_a_check_vector ; Disk change check vector
+    dw drive_a_bitmap ; Allocation bitmap
+drive_b_dph:
+    dw 0            ; Sector translation vector
+    dw 0, 0, 0      ; BDOS scratchpad
+    dw dirbuf       ; Directory scratchpad
+    dw fd1440k      ; Drive parameter block
+    dw drive_b_check_vector ; Disk change check vector
+    dw drive_b_bitmap ; Allocation bitmap
+drive_c_dph:
+    dw 0            ; Sector translation vector
+    dw 0, 0, 0      ; BDOS scratchpad
+    dw dirbuf       ; Directory scratchpad
+    dw hd32m        ; Drive parameter block
+    dw 0            ; Disk change check vector: none as this is a fixed disk
+    dw drive_c_bitmap ; Allocation bitmap
 
-; check vectors
-CHK00: ds 16
-CHK01: ds 16
-CHK02: ds 16
-CHK03: ds 16
+FD1440_SIZE = 1440 ; kb
+FD1440_BLOCKS = FD1440_SIZE / 2 ; 2kB blocks, one reserved track
+fd1440k:            ; disk parameter block for a 1.44M floppy
+    dw 18*4         ; Number of CP/M sectors per track
+    db 4, 15        ; BSH/BLM for 2048-byte blocks
+    db 0            ; EXM for 2048-byte allocation units and >255 blocks
+    dw FD1440_BLOCKS-1 ; DSM
+    dw 127          ; DRM, one fewer than the number of directory entries
+    db 0xc0, 0x00   ; Initial allocation vector for two directory blocks
+    dw 32           ; Size of disk change check vector: (DRM+1)/4
+    dw 0            ; Number of reserved tracks
 
-; allocation vectors
-ALL00: ds 31
-ALL01: ds 31
-ALL02: ds 31
-ALL03: ds 31
+HD32M_SIZE = 32*1024             ; kB; this is the *maximum* size
+HD32M_BLOCKS = HD32M_SIZE / 16 ; 16kB blocks, no reserved tracks
+hd32m:
+    dw 256*4        ; Number of CP/M sectors per track
+    db 7, 127       ; BSH/BLM for 16384-byte blocks
+    db 7            ; EXM for 16384-byte allocation units and >255 blocks
+    dw HD32M_BLOCKS-1 ; DSM
+    dw 511          ; DRM, one fewer than the number of directory entries
+    db 0x80, 0x00   ; Initial allocation vector for one directory block
+    dw 0            ; Size of disk change check vector: zero as this is a fixed disk
+    dw 0            ; Number of reserved tracks
+
+; Drive Bitmaps
+drive_a_bitmap:  ds (FD1440_BLOCKS+7) / 8
+drive_b_bitmap:  ds (FD1440_BLOCKS+7) / 8
+drive_c_bitmap:  ds (HD32M_BLOCKS+7) / 8
+
+; Drive Check Vectors
+drive_a_check_vector: ds 32
+drive_b_check_vector: ds 32
+
+dirbuf: ds 128  ; BDOS scratch directory
+
+end:    dw  0x55aa

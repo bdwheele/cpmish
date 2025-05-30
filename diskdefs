@@ -92,14 +92,16 @@ diskdef brother-powernote
 end
 
 
-# Disk image for the cpm_emulator.  It's just a PC-style 1.44M disk
+# Disk image for the retro z80.  
+# It's just a PC-style 1.44M disk formatted disk, but with a CP/M
+# filesystem.
 diskdef retro_z80
 	seclen 512
 	tracks 160
 	sectrk 18
 	blocksize 2048
 	maxdir 128
-	boottrk 3
+	boottrk 0
 	os 2.2
 end
 

@@ -10,8 +10,8 @@ from glob import glob
 # Configure the BIOS size here; this will then emit an addresses.lib file
 # which contains the position of the BDOS and CCP.
 
-# bios_size was 0x0300.  Was 0x100 before adding the disk tables...
-(cbase, fbase, bbase) = cpm_addresses(name="addresses", bios_size=0x0300)
+# original bios_size was 0x0300.  Was 0x100 before adding the disk tables...
+(cbase, fbase, bbase) = cpm_addresses(name="addresses", bios_size=0x03a0)
 
 # BIOS ----------------------------------------------------------------------
 
@@ -55,31 +55,19 @@ simplerule(
     ins=[".+memory_img"],
     outs=["=memoryfile.img"],
     commands=[
-        "dd if={ins[0]} of={outs[0]} status=none"
+        "dd if={ins[0]} of={outs[0]} ibs=65536 obs=65536 conv=sync status=none"
     ],
     label="MEMIMG"
 )
 
 
-# Repackages the memory image as a boot track.
-
-simplerule(
-    name="bootfile",
-    ins=[".+memory_img"],
-    outs=["=bootfile.img"],
-    commands=[
-        "dd if={ins[0]} of={outs[0]} status=none bs=256 count=36",
-        "dd if={ins[0]} of={outs[0]} status=none bs=256 seek=36 skip=231 count=25",
-    ],
-    label="MKBOOTFILE",
-)
-
+# populate the floppy disk image
 unix2cpm(name="readme", src="README.md")
 
 diskimage(
     name="diskimage",
     format="retro_z80",
-    bootfile=".+bootfile",
+    bootfile=".+memoryfile",
     map={
         "-readme.txt": ".+readme",
         "asm.com": "cpmtools+asm",
