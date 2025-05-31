@@ -1,14 +1,10 @@
-; Kaypro II cpmish BIOS © 2019 David Given
+; BIOS for the Retro Z80 emulator , based on the Kaypro II  and nc200 bios here.
+; © 2025 Brian Wheeler
 ; This file is distributable under the terms of the 2-clause BSD license.
 ; See COPYING.cpmish in the distribution root directory for more information.
 
     maclib cpm
     maclib cpmish
-
-PORT_BITPORT equ 0
-PORT_BEEPER equ 1
-PORT_SERIAL_BAUD equ 2
-
 
     cseg
 label BBASE
@@ -32,9 +28,6 @@ label BBASE
     jp WRITEE
     jp LISTSTE
     jp SECTRANE
-
-
-
 
 ; Actual BIOS entrypoints.
 ;
@@ -115,8 +108,6 @@ LISTSTE:
 READERE:
     call_em(8)
 
-; Selects a drive, returning the address of the DPH in HL (or 0x0000 on
-; error).
 SELDSKE:
     call_em(9)
 
